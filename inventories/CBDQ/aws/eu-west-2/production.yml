@@ -1,0 +1,27 @@
+---
+all:
+  hosts:
+    localhost
+  vars:
+    aws_account_number: "007247598664"
+    aws_endpoints:
+      cloudformation: "https://cloudformation.eu-west-2.amazonaws.com"
+      iam: "https://iam.amazonaws.com"
+      route53: "https://route53.amazonaws.com"
+      s3: "https://s3.eu-west-2.amazonaws.com"
+    aws_region: eu-west-2
+    aws_vpc_id: vpc-e7643f8f
+    aws_vpc_subnet_id_list:
+      - subnet-42cbe62b
+      - subnet-28513852
+      - subnet-5cdf6010
+    cost_centre: CBDQ
+    iac_cloud_resources:
+      aws:
+        iam_users:
+          companies-house-svc:
+            managed_policies:
+              - io.cbdq.companies-house
+        s3_buckets:
+          io.cbdq.companies-house:
+    iso_3166_code: GB
