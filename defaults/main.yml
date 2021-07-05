@@ -1,2 +1,23 @@
 ---
 # defaults file for ansible-role-cf-eks
+cf_eks_node_auto_scaling_group_max_size: 3
+
+cf_eks_node_auto_scaling_group_min_size: 1
+
+cf_eks_node_volume_size: 20
+
+cf_eks_spot_node_1_instance_type: m4.large
+
+cf_eks_spot_node_2_instance_type: t2.medium
+
+cf_eks_source_cidr: "0.0.0.0/0"
+
+cf_eks_spot_price: 1
+
+cf_eks_stack_name: eks
+
+cf_eks_state: present
+
+cf_eks_tags: {}
+
+cf_eks_version: "1.19"

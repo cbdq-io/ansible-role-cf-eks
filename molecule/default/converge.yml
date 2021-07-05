@@ -1,7 +1,0 @@
----
-- name: Converge
-  hosts: all
-  tasks:
-    - name: "Include ansible-role-cf-eks"
-      include_role:
-        name: "ansible-role-cf-eks"

@@ -28,5 +28,5 @@ jobs:
       - name: Requirements
         run: pip install -r requirements.txt
 
-      - name: Molecule Test
-        run: molecule test
+      - name: Molecule Lint
+        run: molecule lint

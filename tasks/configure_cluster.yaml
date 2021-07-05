@@ -1,0 +1,75 @@
+---
+- name: Flush Handlers
+  meta: flush_handlers
+
+- name: CF EKS Response Outputs
+  debug:
+    msg: "{{ cf_eks_response.stack_outputs }}"
+
+- name: Get Cluster information
+  community.kubernetes.k8s_cluster_info:
+  register: cf_eks_task
+  retries: 5
+  until: cf_eks_task is succeeded
+
+- name: Show Cluster Information
+  debug:
+    var: cf_eks_task
+
+- name: AWS Auth Config Map  # noqa var-spacing
+  community.kubernetes.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: aws-auth
+        namespace: kube-system
+      data:
+        mapRoles: |
+          - rolearn: "{{ cf_eks_response.stack_outputs.NodeInstanceRole }}"
+            username: "system:node:{{ '{{EC2PrivateDNSName}}' }}"
+            groups:
+              - system:bootstrappers
+              - system:nodes
+    wait: yes
+  register: cf_eks_task
+  retries: 5
+  until: cf_eks_task is succeeded
+
+- name: Render the Cluster AutoScaling Template
+  ansible.builtin.template:
+    src: 'cluster-autoscaler-ds.yaml.j2'
+    dest: '/tmp/cluster-autoscaler-ds.yml'
+    mode: 0600
+
+- name: Apply the Cluster AutoScaling
+  community.kubernetes.k8s:
+    state: present
+    src: '/tmp/cluster-autoscaler-ds.yml'
+    wait: yes
+
+- name: PodDisruptionBudget
+  community.kubernetes.k8s:
+    state: present
+    namespace: kube-system
+    definition:
+      apiVersion: policy/v1beta1
+      kind: PodDisruptionBudget
+      metadata:
+        name: cluster-autoscaler-pdb
+      spec:
+        minAvailable: 1
+        selector:
+          matchLabels:
+            app: cluster-autoscaler
+    wait: yes
+  register: cf_eks_task
+  retries: 5
+  until: cf_eks_task is succeeded
+
+- name: Spot Termination Handler
+  community.kubernetes.k8s:
+    state: present
+    namespace: kube-system
+    src: "{{ role_path }}/files/spot-interrupt-handler.yaml"

@@ -1,13 +1,15 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Description: Example CloudFormation template for running an ECS cluster on EC2 Spot Instances.
-  Includes EC2 Spot Instance termination notice handler script.
+  Includes EC2 Spot Instance termination notice handler script.  Deploys to the cheapest AZ.
 Mappings:
   CidrMappings:
     public-subnet-1:
       CIDR: 10.0.1.0/24
     public-subnet-2:
       CIDR: 10.0.2.0/24
+    public-subnet-3:
+      CIDR: 10.0.3.0/24
     vpc:
       CIDR: 10.0.0.0/16
   ecsOptimizedAmi:
@@ -35,7 +37,7 @@ Mappings:
       AMI: ami-40ddb938
 Metadata:
   Authors:
-    Description: Shawn OConnor (shawo@amazon.com), Chad Schmutzer (schmutze@amazon.com)
+    Description: Shawn OConnor (shawo@amazon.com), Chad Schmutzer (schmutze@amazon.com), Ben Dalling
   License:
     Description: 'Copyright 2017 Amazon.com, Inc. and its affiliates. All Rights Reserved.
 
@@ -75,12 +77,12 @@ Parameters:
     Type: Number
   instanceType:
     AllowedValues:
-    - c3.large
-    - c4.large
-    - m3.large
-    - m4.large
-    - r3.large
-    - r4.large
+      - c3.large
+      - c4.large
+      - m3.large
+      - m4.large
+      - r3.large
+      - r4.large
     Default: c4.large
     Description: EC2 instance type to use for ECS cluster
     Type: String
@@ -91,11 +93,14 @@ Parameters:
     Default: 0.0.0.0/0
     Description: Optional - CIDR/IP range for instance ssh access - defaults to 0.0.0.0/0
     Type: String
+  costCentre:
+    Description: The cost centre to tag resources with.
+    Type: String
 Resources:
   attachGateway:
     DependsOn:
-    - vpc
-    - internetGateway
+      - vpc
+      - internetGateway
     Properties:
       InternetGatewayId:
         Ref: internetGateway
@@ -110,13 +115,13 @@ Resources:
     Type: AWS::ECS::Cluster
   internetGateway:
     DependsOn:
-    - vpc
+      - vpc
     Type: AWS::EC2::InternetGateway
   publicRoute:
     DependsOn:
-    - publicRouteTable
-    - internetGateway
-    - attachGateway
+      - publicRouteTable
+      - internetGateway
+      - attachGateway
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId:
@@ -126,12 +131,12 @@ Resources:
     Type: AWS::EC2::Route
   publicRouteTable:
     DependsOn:
-    - vpc
-    - attachGateway
+      - vpc
+      - attachGateway
     Properties:
       Tags:
-      - Key: Name
-        Value: Public Route Table
+        - Key: Name
+          Value: Public Route Table
       VpcId:
         Ref: vpc
     Type: AWS::EC2::RouteTable
@@ -140,26 +145,26 @@ Resources:
     Properties:
       AvailabilityZone:
         Fn::Select:
-        - 0
-        - Fn::GetAZs:
-            Ref: AWS::Region
+          - 0
+          - Fn::GetAZs:
+              Ref: AWS::Region
       CidrBlock:
         Fn::FindInMap:
-        - CidrMappings
-        - public-subnet-1
-        - CIDR
+          - CidrMappings
+          - public-subnet-1
+          - CIDR
       MapPublicIpOnLaunch: true
       Tags:
-      - Key: Name
-        Value: Public Subnet 1
+        - Key: Name
+          Value: Public Subnet 1
       VpcId:
         Ref: vpc
     Type: AWS::EC2::Subnet
   publicSubnet1RouteTableAssociation:
     DependsOn:
-    - publicRouteTable
-    - publicSubnet1
-    - attachGateway
+      - publicRouteTable
+      - publicSubnet1
+      - attachGateway
     Properties:
       RouteTableId:
         Ref: publicRouteTable
@@ -171,43 +176,74 @@ Resources:
     Properties:
       AvailabilityZone:
         Fn::Select:
-        - 1
-        - Fn::GetAZs:
-            Ref: AWS::Region
+          - 1
+          - Fn::GetAZs:
+              Ref: AWS::Region
       CidrBlock:
         Fn::FindInMap:
-        - CidrMappings
-        - public-subnet-2
-        - CIDR
+          - CidrMappings
+          - public-subnet-2
+          - CIDR
       MapPublicIpOnLaunch: true
       Tags:
-      - Key: Name
-        Value: Public Subnet 2
+        - Key: Name
+          Value: Public Subnet 2
       VpcId:
         Ref: vpc
     Type: AWS::EC2::Subnet
   publicSubnet2RouteTableAssociation:
     DependsOn:
-    - publicRouteTable
-    - publicSubnet2
-    - attachGateway
+      - publicRouteTable
+      - publicSubnet2
+      - attachGateway
     Properties:
       RouteTableId:
         Ref: publicRouteTable
       SubnetId:
         Ref: publicSubnet2
     Type: AWS::EC2::SubnetRouteTableAssociation
+  publicSubnet3:
+    DependsOn: attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs:
+              Ref: AWS::Region
+      CidrBlock:
+        Fn::FindInMap:
+          - CidrMappings
+          - public-subnet-3
+          - CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Public Subnet 3
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+  publicSubnet3RouteTableAssociation:
+    DependsOn:
+      - publicRouteTable
+      - publicSubnet3
+      - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: publicSubnet3
+    Type: AWS::EC2::SubnetRouteTableAssociation
   securityGroup:
     DependsOn:
-    - vpc
+      - vpc
     Properties:
       GroupDescription: Spot fleet instance Security Group
       SecurityGroupIngress:
-      - CidrIp:
-          Ref: sourceCidr
-        FromPort: 22
-        IpProtocol: tcp
-        ToPort: 22
+        - CidrIp:
+            Ref: sourceCidr
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
       VpcId:
         Ref: vpc
     Type: AWS::EC2::SecurityGroup
@@ -215,364 +251,371 @@ Resources:
     Type: AWS::SNS::Topic
   spotFleet:
     DependsOn:
-    - spotFleetRole
-    - spotFleetInstanceProfile
-    - ecsCluster
-    - securityGroup
+      - spotFleetRole
+      - spotFleetInstanceProfile
+      - ecsCluster
+      - securityGroup
     Properties:
       SpotFleetRequestConfigData:
         AllocationStrategy: diversified
         IamFleetRole:
           Fn::GetAtt:
-          - spotFleetRole
-          - Arn
+            - spotFleetRole
+            - Arn
         LaunchSpecifications:
-        - IamInstanceProfile:
-            Arn:
-              Fn::GetAtt:
-              - spotFleetInstanceProfile
-              - Arn
-          ImageId:
-            Fn::FindInMap:
-            - ecsOptimizedAmi
-            - Ref: AWS::Region
-            - AMI
-          InstanceType:
-            Ref: instanceType
-          KeyName:
-            Ref: keyName
-          Monitoring:
-            Enabled: true
-          SecurityGroups:
-          - GroupId:
-              Ref: securityGroup
-          SubnetId:
-            Fn::Join:
-            - ','
-            - - Ref: publicSubnet1
-              - Ref: publicSubnet2
-          UserData:
-            Fn::Base64:
-              Fn::Sub: '#!/bin/bash -xe
+          - IamInstanceProfile:
+              Arn:
+                Fn::GetAtt:
+                  - spotFleetInstanceProfile
+                  - Arn
+            ImageId:
+              Fn::FindInMap:
+                - ecsOptimizedAmi
+                - Ref: AWS::Region
+                - AMI
+            InstanceType:
+              Ref: instanceType
+            KeyName:
+              Ref: keyName
+            Monitoring:
+              Enabled: true
+            SecurityGroups:
+              - GroupId:
+                  Ref: securityGroup
+            SubnetId:
+              Fn::Join:
+                - ','
+                - - Ref: publicSubnet1
+                  - Ref: publicSubnet2
+                  - Ref: publicSubnet3
+            TagSpecifications:
+              - ResourceType: instance
+                Tags:
+                  - Key: cost-centre
+                    Value:
+                      Ref: costCentre
+            UserData:
+              Fn::Base64:
+                Fn::Sub: '#!/bin/bash -xe
 
-                export PATH=/usr/local/bin:$PATH
+                  export PATH=/usr/local/bin:$PATH
 
-                yum -y --security update
+                  yum -y --security update
 
-                yum -y install jq
+                  yum -y install jq
 
-                easy_install pip
+                  easy_install pip
 
-                pip install awscli
+                  pip install awscli
 
-                aws configure set default.region ${AWS::Region}
+                  aws configure set default.region ${AWS::Region}
 
-                echo ECS_CLUSTER=${ecsCluster} >> /etc/ecs/ecs.config
+                  echo ECS_CLUSTER=${ecsCluster} >> /etc/ecs/ecs.config
 
 
 
-                cat <<EOF > /tmp/awslogs.conf
+                  cat <<EOF > /tmp/awslogs.conf
 
-                [general]
+                  [general]
 
-                state_file = /var/awslogs/state/agent-state
+                  state_file = /var/awslogs/state/agent-state
 
 
 
-                [/var/log/dmesg]
+                  [/var/log/dmesg]
 
-                file = /var/log/dmesg
+                  file = /var/log/dmesg
 
-                log_group_name = ${cloudWatchLogsGroup}
+                  log_group_name = ${cloudWatchLogsGroup}
 
-                log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/dmesg
+                  log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/dmesg
 
-                initial_position = start_of_file
+                  initial_position = start_of_file
 
 
 
-                [/var/log/messages]
+                  [/var/log/messages]
 
-                file = /var/log/messages
+                  file = /var/log/messages
 
-                log_group_name = ${cloudWatchLogsGroup}
+                  log_group_name = ${cloudWatchLogsGroup}
 
-                log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/messages
+                  log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/messages
 
-                datetime_format = %b %d %H:%M:%S
+                  datetime_format = %b %d %H:%M:%S
 
-                initial_position = start_of_file
+                  initial_position = start_of_file
 
 
 
-                [/var/log/docker]
+                  [/var/log/docker]
 
-                file = /var/log/docker
+                  file = /var/log/docker
 
-                log_group_name = ${cloudWatchLogsGroup}
+                  log_group_name = ${cloudWatchLogsGroup}
 
-                log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/docker
+                  log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/docker
 
-                datetime_format = %Y-%m-%dT%H:%M:%S.%f
+                  datetime_format = %Y-%m-%dT%H:%M:%S.%f
 
-                initial_position = start_of_file
+                  initial_position = start_of_file
 
 
 
-                [/var/log/ecs/ecs-init.log]
+                  [/var/log/ecs/ecs-init.log]
 
-                file = /var/log/ecs/ecs-init.log.*
+                  file = /var/log/ecs/ecs-init.log.*
 
-                log_group_name = ${cloudWatchLogsGroup}
+                  log_group_name = ${cloudWatchLogsGroup}
 
-                log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/ecs/ecs-init.log
+                  log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/ecs/ecs-init.log
 
-                datetime_format = %Y-%m-%dT%H:%M:%SZ
+                  datetime_format = %Y-%m-%dT%H:%M:%SZ
 
-                initial_position = start_of_file
+                  initial_position = start_of_file
 
 
 
-                [/var/log/ecs/ecs-agent.log]
+                  [/var/log/ecs/ecs-agent.log]
 
-                file = /var/log/ecs/ecs-agent.log.*
+                  file = /var/log/ecs/ecs-agent.log.*
 
-                log_group_name = ${cloudWatchLogsGroup}
+                  log_group_name = ${cloudWatchLogsGroup}
 
-                log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/ecs/ecs-agent.log
+                  log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/ecs/ecs-agent.log
 
-                datetime_format = %Y-%m-%dT%H:%M:%SZ
+                  datetime_format = %Y-%m-%dT%H:%M:%SZ
 
-                initial_position = start_of_file
+                  initial_position = start_of_file
 
 
 
-                [/var/log/ecs/audit.log]
+                  [/var/log/ecs/audit.log]
 
-                file = /var/log/ecs/audit.log.*
+                  file = /var/log/ecs/audit.log.*
 
-                log_group_name = ${cloudWatchLogsGroup}
+                  log_group_name = ${cloudWatchLogsGroup}
 
-                log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/ecs/audit.log
+                  log_stream_name = %ECS_CLUSTER/%CONTAINER_INSTANCE/var/log/ecs/audit.log
 
-                datetime_format = %Y-%m-%dT%H:%M:%SZ
+                  datetime_format = %Y-%m-%dT%H:%M:%SZ
 
-                initial_position = start_of_file
+                  initial_position = start_of_file
 
-                EOF
+                  EOF
 
 
 
-                cd /tmp && curl -sO https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
+                  cd /tmp && curl -sO https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
 
-                python /tmp/awslogs-agent-setup.py -n -r ${AWS::Region} -c /tmp/awslogs.conf
+                  python /tmp/awslogs-agent-setup.py -n -r ${AWS::Region} -c /tmp/awslogs.conf
 
 
 
-                cat <<EOF > /etc/init/cloudwatch-logs-start.conf
+                  cat <<EOF > /etc/init/cloudwatch-logs-start.conf
 
-                description "Configure and start CloudWatch Logs agent on Amazon ECS container
-                instance"
+                  description "Configure and start CloudWatch Logs agent on Amazon ECS container
+                  instance"
 
-                author "Amazon Web Services"
+                  author "Amazon Web Services"
 
-                start on started ecs
+                  start on started ecs
 
-                script
+                  script
 
-                exec 2>>/var/log/cloudwatch-logs-start.log
+                  exec 2>>/var/log/cloudwatch-logs-start.log
 
-                set -x
+                  set -x
 
-                until curl -s http://localhost:51678/v1/metadata; do sleep 1; done
+                  until curl -s http://localhost:51678/v1/metadata; do sleep 1; done
 
-                ECS_CLUSTER=\$(curl -s http://localhost:51678/v1/metadata | jq .Cluster | tr
-                -d \")
+                  ECS_CLUSTER=\$(curl -s http://localhost:51678/v1/metadata | jq .Cluster | tr
+                  -d \")
 
-                CONTAINER_INSTANCE=\$(curl -s http://localhost:51678/v1/metadata | jq .ContainerInstanceArn
-                | tr -d \")
+                  CONTAINER_INSTANCE=\$(curl -s http://localhost:51678/v1/metadata | jq .ContainerInstanceArn
+                  | tr -d \")
 
-                sed -i "s|%ECS_CLUSTER|\$ECS_CLUSTER|g" /var/awslogs/etc/awslogs.conf
+                  sed -i "s|%ECS_CLUSTER|\$ECS_CLUSTER|g" /var/awslogs/etc/awslogs.conf
 
-                sed -i "s|%CONTAINER_INSTANCE|\$CONTAINER_INSTANCE|g" /var/awslogs/etc/awslogs.conf
+                  sed -i "s|%CONTAINER_INSTANCE|\$CONTAINER_INSTANCE|g" /var/awslogs/etc/awslogs.conf
 
-                chkconfig awslogs on
+                  chkconfig awslogs on
 
-                service awslogs start
+                  service awslogs start
 
-                end script
+                  end script
 
-                EOF
+                  EOF
 
 
 
-                cat <<EOF > /etc/init/spot-instance-termination-notice-handler.conf
+                  cat <<EOF > /etc/init/spot-instance-termination-notice-handler.conf
 
-                description "Start spot instance termination handler monitoring script"
+                  description "Start spot instance termination handler monitoring script"
 
-                author "Amazon Web Services"
+                  author "Amazon Web Services"
 
-                start on started ecs
+                  start on started ecs
 
-                script
+                  script
 
-                echo \$\$ > /var/run/spot-instance-termination-notice-handler.pid
+                  echo \$\$ > /var/run/spot-instance-termination-notice-handler.pid
 
-                exec /usr/local/bin/spot-instance-termination-notice-handler.sh
+                  exec /usr/local/bin/spot-instance-termination-notice-handler.sh
 
-                end script
+                  end script
 
-                pre-start script
+                  pre-start script
 
-                logger "[spot-instance-termination-notice-handler.sh]: spot instance termination
-                notice handler started"
+                  logger "[spot-instance-termination-notice-handler.sh]: spot instance termination
+                  notice handler started"
 
-                end script
+                  end script
 
-                EOF
+                  EOF
 
 
 
-                cat <<EOF > /usr/local/bin/spot-instance-termination-notice-handler.sh
+                  cat <<EOF > /usr/local/bin/spot-instance-termination-notice-handler.sh
 
-                #!/bin/bash
+                  #!/bin/bash
 
-                while sleep 5; do
+                  while sleep 5; do
 
-                if [ -z \$(curl -Isf http://169.254.169.254/latest/meta-data/spot/termination-time)];
-                then
+                  if [ -z \$(curl -Isf http://169.254.169.254/latest/meta-data/spot/termination-time)];
+                  then
 
-                /bin/false
+                  /bin/false
 
-                else
+                  else
 
-                logger "[spot-instance-termination-notice-handler.sh]: spot instance termination
-                notice detected"
+                  logger "[spot-instance-termination-notice-handler.sh]: spot instance termination
+                  notice detected"
 
-                STATUS=DRAINING
+                  STATUS=DRAINING
 
-                ECS_CLUSTER=\$(curl -s http://localhost:51678/v1/metadata | jq .Cluster | tr
-                -d \")
+                  ECS_CLUSTER=\$(curl -s http://localhost:51678/v1/metadata | jq .Cluster | tr
+                  -d \")
 
-                CONTAINER_INSTANCE=\$(curl -s http://localhost:51678/v1/metadata | jq .ContainerInstanceArn
-                | tr -d \")
+                  CONTAINER_INSTANCE=\$(curl -s http://localhost:51678/v1/metadata | jq .ContainerInstanceArn
+                  | tr -d \")
 
-                logger "[spot-instance-termination-notice-handler.sh]: putting instance in state
-                \$STATUS"
+                  logger "[spot-instance-termination-notice-handler.sh]: putting instance in state
+                  \$STATUS"
 
-                logger "[spot-instance-termination-notice-handler.sh]: running: /usr/local/bin/aws
-                ecs update-container-instances-state --cluster \$ECS_CLUSTER --container-instances
-                \$CONTAINER_INSTANCE --status \$STATUS"
+                  logger "[spot-instance-termination-notice-handler.sh]: running: /usr/local/bin/aws
+                  ecs update-container-instances-state --cluster \$ECS_CLUSTER --container-instances
+                  \$CONTAINER_INSTANCE --status \$STATUS"
 
-                /usr/local/bin/aws ecs update-container-instances-state --cluster \$ECS_CLUSTER
-                --container-instances \$CONTAINER_INSTANCE --status \$STATUS
+                  /usr/local/bin/aws ecs update-container-instances-state --cluster \$ECS_CLUSTER
+                  --container-instances \$CONTAINER_INSTANCE --status \$STATUS
 
-                logger "[spot-instance-termination-notice-handler.sh]: running: \"/usr/local/bin/aws
-                sns publish --topic-arn ${snsTopic} --message \"Spot instance termination notice
-                detected. Details: cluster: \$ECS_CLUSTER, container_instance: \$CONTAINER_INSTANCE.
-                Putting instance in state \$STATUS.\""
+                  logger "[spot-instance-termination-notice-handler.sh]: running: \"/usr/local/bin/aws
+                  sns publish --topic-arn ${snsTopic} --message \"Spot instance termination notice
+                  detected. Details: cluster: \$ECS_CLUSTER, container_instance: \$CONTAINER_INSTANCE.
+                  Putting instance in state \$STATUS.\""
 
-                /usr/local/bin/aws sns publish --topic-arn ${snsTopic} --message "Spot instance
-                termination notice detected. Details: cluster: \$ECS_CLUSTER, container_instance:
-                \$CONTAINER_INSTANCE. Putting instance in state \$STATUS."
+                  /usr/local/bin/aws sns publish --topic-arn ${snsTopic} --message "Spot instance
+                  termination notice detected. Details: cluster: \$ECS_CLUSTER, container_instance:
+                  \$CONTAINER_INSTANCE. Putting instance in state \$STATUS."
 
-                logger "[spot-instance-termination-notice-handler.sh]: putting myself to sleep..."
+                  logger "[spot-instance-termination-notice-handler.sh]: putting myself to sleep..."
 
-                sleep 120
+                  sleep 120
 
-                fi
+                  fi
 
-                done
+                  done
 
-                EOF
+                  EOF
 
 
 
-                chmod +x /usr/local/bin/spot-instance-termination-notice-handler.sh
+                  chmod +x /usr/local/bin/spot-instance-termination-notice-handler.sh
 
-                '
+                  '
         TargetCapacity:
           Ref: ecsClusterTargetCapacity
         TerminateInstancesWithExpiration: true
     Type: AWS::EC2::SpotFleet
   spotFleetInstanceProfile:
     DependsOn:
-    - spotFleetInstanceRole
+      - spotFleetInstanceRole
     Properties:
       Path: /
       Roles:
-      - Ref: spotFleetInstanceRole
+        - Ref: spotFleetInstanceRole
     Type: AWS::IAM::InstanceProfile
   spotFleetInstanceRole:
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Statement:
-        - Action:
-          - sts:AssumeRole
-          Effect: Allow
-          Principal:
-            Service:
-            - ec2.amazonaws.com
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
         Version: 2012-10-17
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
       Path: /
       Policies:
-      - PolicyDocument:
-          Statement:
-          - Action:
-            - ecs:UpdateContainerInstancesState
-            Effect: Allow
-            Resource: '*'
-          Version: 2012-10-17
-        PolicyName: ecsUpdateContainerInstancesStatePolicy
-      - PolicyDocument:
-          Statement:
-          - Action:
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            - logs:DescribeLogStreams
-            Effect: Allow
-            Resource: arn:aws:logs:*:*:*
-          Version: 2012-10-17
-        PolicyName: cloudWatchLogsPolicy
-      - PolicyDocument:
-          Statement:
-          - Action:
-            - sns:Publish
-            Effect: Allow
-            Resource:
-              Ref: snsTopic
-          Version: 2012-10-17
-        PolicyName: snsPublishPolicy
-    Type: AWS::IAM::Role
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - ecs:UpdateContainerInstancesState
+                Effect: Allow
+                Resource: '*'
+            Version: 2012-10-17
+          PolicyName: ecsUpdateContainerInstancesStatePolicy
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Effect: Allow
+                Resource: arn:aws:logs:*:*:*
+            Version: 2012-10-17
+          PolicyName: cloudWatchLogsPolicy
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - sns:Publish
+                Effect: Allow
+                Resource:
+                  Ref: snsTopic
+            Version: 2012-10-17
+          PolicyName: snsPublishPolicy
   spotFleetRole:
     Properties:
       AssumeRolePolicyDocument:
         Statement:
-        - Action:
-          - sts:AssumeRole
-          Effect: Allow
-          Principal:
-            Service:
-            - spotfleet.amazonaws.com
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - spotfleet.amazonaws.com
         Version: 2012-10-17
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
       Path: /
     Type: AWS::IAM::Role
   vpc:
     Properties:
       CidrBlock:
         Fn::FindInMap:
-        - CidrMappings
-        - vpc
-        - CIDR
+          - CidrMappings
+          - vpc
+          - CIDR
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
-      - Key: Name
-        Value: VPC for ECS on EC2 Spot fleet
+        - Key: Name
+          Value: VPC for ECS on EC2 Spot fleet
     Type: AWS::EC2::VPC
 ...

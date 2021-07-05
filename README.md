@@ -1,7 +1,10 @@
 cf-eks
 ======
 
-Create an EKS cluster with CloudFormation
+Create an EKS cluster with CloudFormation.
+
+Implements the steps described in
+https://aws.amazon.com/blogs/compute/run-your-kubernetes-workloads-on-amazon-ec2-spot-instances-with-amazon-eks/
 
 Requirements
 ------------

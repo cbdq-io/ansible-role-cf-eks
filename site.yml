@@ -1,0 +1,15 @@
+---
+- name: Deploy an EKS Cluster via CloudFormation
+
+  connection: local
+
+  hosts: localhost
+
+  vars:
+    cf_eks_key_name: github
+    cf_eks_node_image_id: ami-06ac47ff0f82c613c
+    cf_eks_tags:
+      cost-centre: "{{ cost_centre }}"
+
+  roles:
+    - "ansible-role-cf-eks"
