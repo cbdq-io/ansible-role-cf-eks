@@ -6,9 +6,9 @@ cf_eks_node_auto_scaling_group_min_size: 1
 
 cf_eks_node_volume_size: 20
 
-cf_eks_spot_node_1_instance_type: m4.large
+cf_eks_spot_node_1_instance_type: m5.large
 
-cf_eks_spot_node_2_instance_type: t2.medium
+cf_eks_spot_node_2_instance_type: t3.medium
 
 cf_eks_source_cidr: "0.0.0.0/0"
 
