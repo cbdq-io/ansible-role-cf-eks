@@ -1,0 +1,9 @@
+---
+# handlers file for ansible-role-cf-eks
+- name: Update Kube Config
+  command: aws eks update-kubeconfig --name eks
+  when:
+    - cf_eks_state == 'present'
+  register: cf_eks_task
+  retries: 5
+  until: cf_eks_task is succeeded

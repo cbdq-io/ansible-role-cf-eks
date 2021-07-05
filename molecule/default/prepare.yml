@@ -1,0 +1,19 @@
+---
+- name: Prepare
+
+  connection: local
+
+  gather_facts: false
+
+  hosts: localstack
+
+  tasks:
+    - name: Wait for Localstack
+      uri:
+        return_content: yes
+        url: http://localhost:4566/health
+      delay: 1
+      failed_when: "'running' not in localstack_status.content"
+      register: localstack_status
+      retries: 60
+      until: localstack_status is succeeded

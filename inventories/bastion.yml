@@ -1,0 +1,11 @@
+---
+# Used by the bastion host repository by an ansible-pull process.
+all:
+  hosts:
+    localhost
+  children:
+    bastion:
+      hosts:
+        localhost
+      vars:
+        bastion_is_bastion: True

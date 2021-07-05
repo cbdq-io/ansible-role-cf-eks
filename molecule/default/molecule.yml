@@ -1,0 +1,98 @@
+---
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+
+lint: |
+  set -ex
+  yamllint .
+  ansible-lint
+  flake8
+
+platforms:
+  - name: localstack
+    command: "docker-entrypoint.sh"
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      DEBUG: "0"
+      LOCALSTACK_API_KEY: "${LOCALSTACK_API_KEY}"
+      SERVICES: "cloudformation,ec2,eks,iam,logs,route53,sns"
+    image: localstack/localstack:0.12.12
+    published_ports:
+      - 0.0.0.0:443:443/tcp
+      - 0.0.0.0:4566:4566/tcp
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      remote_tmp: /tmp
+  env:
+    AWS_ACCESS_KEY_ID: test
+    AWS_SECRET_ACCESS_KEY: test
+  inventory:
+    hosts:
+      all:
+        vars:
+          aws_account_number: "000000000000"
+          aws_endpoints:
+            cloudformation: "http://localhost:4566"
+            iam: "http://localhost:4566"
+            route53: "http://localhost:4566"
+            s3: "http://localhost:4566"
+          aws_region: "eu-west-2"
+          aws_vpc_subnet_id_list:
+            - subnet-42cbe62b
+            - subnet-28513852
+            - subnet-5cdf6010
+          aws_vpc_id: vpc-e7643f8f
+          cost_centre: CBDQ
+  playbooks:
+    converge: ../../site.yml
+    prepare: prepare.yml
+
+scenario:
+  create_sequence:
+    - dependency
+    - create
+    - prepare
+  check_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - create
+    - prepare
+    - converge
+    - check
+    - destroy
+  converge_sequence:
+    - dependency
+    - create
+    - prepare
+    - converge
+  destroy_sequence:
+    - dependency
+    - cleanup
+    - destroy
+  test_sequence:
+    - dependency
+    - lint
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    # - idempotence
+    - side_effect
+    - verify
+    - cleanup
+    - destroy
+
+verifier:
+  name: testinfra
+  options:
+    v: 1

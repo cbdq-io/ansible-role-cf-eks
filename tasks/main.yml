@@ -1,0 +1,36 @@
+---
+- name: CloudFormation Stack
+  amazon.aws.cloudformation:
+    aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    ec2_url: "{{ aws_endpoints['cloudformation'] }}"
+    region: "{{ aws_region }}"
+    stack_name: "{{ cf_eks_stack_name }}"
+    state: "{{ cf_eks_state }}"
+    tags: "{{ cf_eks_tags }}"
+    template: "{{ role_path }}/files/amazon-eks-nodegroup-with-spot.yaml"
+    template_parameters:
+      ClusterName: "{{ cf_eks_stack_name }}"
+      KeyName: "{{ cf_eks_key_name }}"
+      NodeAutoScalingGroupMaxSize: "{{ cf_eks_node_auto_scaling_group_max_size }}"
+      NodeAutoScalingGroupMinSize: "{{ cf_eks_node_auto_scaling_group_min_size }}"
+      NodeImageId: "{{ cf_eks_node_image_id }}"
+      NodeVolumeSize: "{{ cf_eks_node_volume_size }}"
+      SpotNode1InstanceType: "{{ cf_eks_spot_node_1_instance_type }}"
+      SpotNode2InstanceType: "{{ cf_eks_spot_node_2_instance_type }}"
+      SpotPrice: "{{ cf_eks_spot_price }}"
+      Subnets: "{{ aws_vpc_subnet_id_list | join(',') }}"
+      Version: "{{ cf_eks_version }}"
+      VpcId: "{{ aws_vpc_id }}"
+      costCentre: "{{ cost_centre }}"
+      sourceCidr: "{{ cf_eks_source_cidr }}"
+  until: cf_eks_response is succeeded
+  register: cf_eks_response
+  retries: 5
+  notify:
+    - Update Kube Config
+
+- name: Include Cluster Configuration Tasks
+  include_tasks: configure_cluster.yaml
+  when:
+    - cf_eks_state == 'present'
